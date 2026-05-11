@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const honorCards = [
   {
@@ -23,6 +23,39 @@ const honorCards = [
   },
 ];
 
+const MUSIC_START_SECONDS = 23;
+
+const heartParticles = Array.from({ length: 22 }, (_, index) => ({
+  id: index,
+  className: index % 4 === 0 ? "heart big" : index % 4 === 1 ? "heart medium" : "heart small",
+  symbol: index % 2 === 0 ? "♥" : "♡",
+  style: {
+    "--left": `${(index * 19) % 100}%`,
+    "--delay": `${(index * -1.19) % 20}s`,
+    "--duration": `${17 + (index % 8)}s`,
+    "--drift": `${index % 2 === 0 ? 48 : -48}px`,
+  } as React.CSSProperties,
+}));
+
+const rainPetals = Array.from({ length: 24 }, (_, index) => ({
+  id: index,
+  style: {
+    "--left": `${(index * 23) % 100}%`,
+    "--delay": `${(index % 11) * 0.12}s`,
+    "--size": `${10 + (index % 5) * 4}px`,
+    "--drift": `${index % 2 === 0 ? 78 : -78}px`,
+  } as React.CSSProperties,
+}));
+
+const roseSparkles = Array.from({ length: 10 }, (_, index) => ({
+  id: index,
+  style: {
+    "--x": `${(index * 31) % 100}%`,
+    "--y": `${(index * 47) % 100}%`,
+    "--delay": `${index * 0.15}s`,
+  } as React.CSSProperties,
+}));
+
 const petals = Array.from({ length: 32 }, (_, index) => {
   const ring = index < 8 ? 1 : index < 18 ? 2 : 3;
   const angle = index * 31;
@@ -41,20 +74,13 @@ const petals = Array.from({ length: 32 }, (_, index) => {
 function NeonHeartField() {
   return (
     <div className="neon-heart-field" aria-hidden="true">
-      {Array.from({ length: 28 }).map((_, index) => (
+      {heartParticles.map((heart) => (
         <span
-          key={index}
-          className={index % 4 === 0 ? "heart big" : index % 4 === 1 ? "heart medium" : "heart small"}
-          style={
-            {
-              "--left": `${(index * 19) % 100}%`,
-              "--delay": `${(index * -1.19) % 20}s`,
-              "--duration": `${15 + (index % 10)}s`,
-              "--drift": `${index % 2 === 0 ? 56 : -56}px`,
-            } as React.CSSProperties
-          }
+          key={heart.id}
+          className={heart.className}
+          style={heart.style}
         >
-          {index % 2 === 0 ? "♥" : "♡"}
+          {heart.symbol}
         </span>
       ))}
     </div>
@@ -64,17 +90,10 @@ function NeonHeartField() {
 function RosePetalRain({ active }: { active: boolean }) {
   return (
     <div className={active ? "petal-rain active" : "petal-rain"} aria-hidden="true">
-      {Array.from({ length: 34 }).map((_, index) => (
+      {rainPetals.map((petal) => (
         <span
-          key={index}
-          style={
-            {
-              "--left": `${(index * 23) % 100}%`,
-              "--delay": `${(index % 11) * 0.12}s`,
-              "--size": `${10 + (index % 5) * 4}px`,
-              "--drift": `${index % 2 === 0 ? 85 : -85}px`,
-            } as React.CSSProperties
-          }
+          key={petal.id}
+          style={petal.style}
         />
       ))}
     </div>
@@ -115,9 +134,11 @@ function MusicPlayer() {
 
     audio.volume = 0.42;
 
-    // Start at 23 seconds when beginning playback.
-    if (audio.currentTime < 23 || audio.ended) {
-      audio.currentTime = 23;
+    // Always start at 0:23 when playback begins.
+    try {
+      audio.currentTime = MUSIC_START_SECONDS;
+    } catch {
+      // Some browsers defer seeking until metadata is available.
     }
 
     audio
@@ -133,7 +154,7 @@ function MusicPlayer() {
 
   return (
     <div className="music-player">
-      <audio ref={audioRef} src="/song-for-momma.mp3" loop preload="auto" />
+      <audio ref={audioRef} src="/song-for-momma.mp3" loop preload="metadata" />
       <button type="button" onClick={toggleMusic}>
         {playing ? "Pause Mom's Song" : "Play Mom's Song"}
       </button>
@@ -145,6 +166,7 @@ function MusicPlayer() {
 function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: boolean }) {
   const roseRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
+  const movedDuringDrag = useRef(false);
   const lastPoint = useRef({ x: 0, y: 0 });
   const rotation = useRef({ x: -6, y: -18 });
 
@@ -156,6 +178,7 @@ function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: b
 
   function startDrag(event: React.PointerEvent<HTMLButtonElement>) {
     dragging.current = true;
+    movedDuringDrag.current = false;
     lastPoint.current = { x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -165,6 +188,10 @@ function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: b
 
     const dx = event.clientX - lastPoint.current.x;
     const dy = event.clientY - lastPoint.current.y;
+
+    if (Math.abs(dx) + Math.abs(dy) > 3) {
+      movedDuringDrag.current = true;
+    }
 
     rotation.current.y += dx * 0.45;
     rotation.current.x -= dy * 0.32;
@@ -178,10 +205,13 @@ function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: b
 
   function endDrag() {
     dragging.current = false;
+    window.setTimeout(() => {
+      movedDuringDrag.current = false;
+    }, 0);
   }
 
   function handleClick() {
-    if (!dragging.current) {
+    if (!dragging.current && !movedDuringDrag.current) {
       onSurprise();
     }
   }
@@ -202,16 +232,10 @@ function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: b
       >
         <div className="rose-orbit" />
         <div className="rose-sparkles">
-          {Array.from({ length: 12 }).map((_, index) => (
+          {roseSparkles.map((sparkle) => (
             <span
-              key={index}
-              style={
-                {
-                  "--x": `${(index * 31) % 100}%`,
-                  "--y": `${(index * 47) % 100}%`,
-                  "--delay": `${index * 0.15}s`,
-                } as React.CSSProperties
-              }
+              key={sparkle.id}
+              style={sparkle.style}
             />
           ))}
         </div>
@@ -259,21 +283,21 @@ export default function Home() {
   const [surpriseActive, setSurpriseActive] = useState(false);
   const messageSectionRef = useRef<HTMLElement | null>(null);
 
-  function toggleMessage(message: "letter" | "blessing") {
-    setActiveMessage((current) => {
-      const nextMessage = current === message ? null : message;
+  useEffect(() => {
+    if (!activeMessage) return;
 
-      if (nextMessage) {
-        window.setTimeout(() => {
-          messageSectionRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }, 80);
-      }
-
-      return nextMessage;
+    const frame = window.requestAnimationFrame(() => {
+      messageSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeMessage]);
+
+  function toggleMessage(message: "letter" | "blessing") {
+    setActiveMessage((current) => (current === message ? null : message));
   }
 
   function triggerSurprise() {
@@ -289,10 +313,10 @@ export default function Home() {
 
       <section className="hero-section">
         <div className="hero-copy">
-          <div className="eyebrow">Mother's Day Gift</div>
+          <div className="eyebrow">Mother&apos;s Day Gift</div>
 
           <h1>
-            Happy Mother's Day,
+            Happy Mother&apos;s Day,
             <span> Mom.</span>
           </h1>
 
@@ -303,11 +327,11 @@ export default function Home() {
           </p>
 
           <div className="hero-buttons">
-            <button onClick={() => toggleMessage("letter")}>
+            <button onClick={() => toggleMessage("letter")} aria-expanded={activeMessage === "letter"}>
               {activeMessage === "letter" ? "Close My Letter" : "Open My Letter"}
             </button>
 
-            <button className="secondary" onClick={() => toggleMessage("blessing")}>
+            <button className="secondary" onClick={() => toggleMessage("blessing")} aria-expanded={activeMessage === "blessing"}>
               {activeMessage === "blessing" ? "Close Your Blessing" : "Open Your Blessing"}
             </button>
           </div>
@@ -347,7 +371,7 @@ export default function Home() {
               </p>
 
               <p className="signature">
-                Happy Mother's Day. With love, from Russell and Heather.
+                Happy Mother&apos;s Day. With love, from Russell and Heather.
               </p>
             </div>
           )}
@@ -361,7 +385,7 @@ export default function Home() {
                 Mom, may the Lord bless you, strengthen you, cover you, and reward
                 every seed of love you have sown. May peace surround your heart, joy
                 fill your days, and may you always know how deeply you are loved,
-                honored, and appreciated. In Jesus' Name, amen.
+                honored, and appreciated. In Jesus&apos; Name, amen.
               </p>
             </div>
           )}
