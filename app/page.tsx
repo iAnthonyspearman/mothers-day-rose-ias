@@ -41,7 +41,7 @@ const petals = Array.from({ length: 32 }, (_, index) => {
 function NeonHeartField() {
   return (
     <div className="neon-heart-field" aria-hidden="true">
-      {Array.from({ length: 56 }).map((_, index) => (
+      {Array.from({ length: 28 }).map((_, index) => (
         <span
           key={index}
           className={index % 4 === 0 ? "heart big" : index % 4 === 1 ? "heart medium" : "heart small"}
@@ -202,7 +202,7 @@ function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: b
       >
         <div className="rose-orbit" />
         <div className="rose-sparkles">
-          {Array.from({ length: 24 }).map((_, index) => (
+          {Array.from({ length: 12 }).map((_, index) => (
             <span
               key={index}
               style={
@@ -257,9 +257,23 @@ function ClassicRose({ onSurprise, active }: { onSurprise: () => void; active: b
 export default function Home() {
   const [activeMessage, setActiveMessage] = useState<"letter" | "blessing" | null>(null);
   const [surpriseActive, setSurpriseActive] = useState(false);
+  const messageSectionRef = useRef<HTMLElement | null>(null);
 
   function toggleMessage(message: "letter" | "blessing") {
-    setActiveMessage((current) => (current === message ? null : message));
+    setActiveMessage((current) => {
+      const nextMessage = current === message ? null : message;
+
+      if (nextMessage) {
+        window.setTimeout(() => {
+          messageSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 80);
+      }
+
+      return nextMessage;
+    });
   }
 
   function triggerSurprise() {
@@ -309,7 +323,7 @@ export default function Home() {
       </section>
 
       {activeMessage && (
-        <section className="message-section">
+        <section ref={messageSectionRef} className="message-section">
           {activeMessage === "letter" && (
             <div className="message-card">
               <p className="message-label">A Letter To You</p>
